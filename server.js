@@ -18,7 +18,7 @@ var con = mysql.createConnection({
   host: "localhost",
   user: "root",
   password: "",
-  database: "databasnamnet"
+  database: "restapislut"
 });
 
 //Kopplar till databasen
@@ -45,7 +45,6 @@ function auth(req, res, next) {
   });
 }
 
-
 // Skapar ny användare
 app.post("/users", async function(req, res) {
   const { username, password } = req.body;
@@ -58,4 +57,34 @@ app.post("/users", async function(req, res) {
   // Hashar lösenordet
   const hash = await bcrypt.hash(password, 10);
 
-};
+
+// Hämta alla användare
+app.get("/users", auth, function(req, res) {
+  con.query("SELECT id, username FROM users", function(err, result) {
+    if (err) {
+      return res.status(500).json(err);
+    }
+
+    res.json(result);
+  });
+});
+
+// Hämta användare med id
+app.get("/users/:id", auth, function(req, res) {
+  const userId = req.params.id;
+
+  con.query("SELECT id, username FROM users WHERE id = ?", [userId], function(err, result) {
+    if (err) {
+      return res.status(500).json(err);
+    }
+
+    if (result.length === 0) {
+      return res.status(404).json({ message: "Anävnade hittades inte" });
+    }
+
+    res.json(result[0]);
+  });
+});
+
+
+
