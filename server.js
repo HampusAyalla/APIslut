@@ -86,5 +86,16 @@ app.get("/users/:id", auth, function(req, res) {
   });
 });
 
+//Logga in användare 
+app.post("/login", function(req, res) {
+  const { username, password } = req.body;
+
+  con.query(
+    "SELECT * FROM users WHERE username = ?",
+    [username],
+    async function(err, result)
 
 
+http.listen(port, function() {
+  console.log("Server startad" + port);
+})});
