@@ -29,7 +29,7 @@ con.connect(function(err) {
 
 //middleware, kollar om användaren har en token för att kolla om man ska kunna gå vidare
 function auth(req, res, next) {
-  const token = req.headers['mintoken']; //
+  const token = req.headers['authorization'];
 
   if (!token) {
     return res.status(401).json({ message: "Ingen token" });
@@ -57,6 +57,19 @@ app.post("/users", async function(req, res) {
   // Hashar lösenordet
   const hash = await bcrypt.hash(password, 10);
 
+  // Lägger till användaren i databasen
+  con.query(
+    "INSERT INTO users (username, password) VALUES (?, ?)",
+    [username, hash],
+    function(err, result) {
+      if (err) {
+        return res.status(500).json(err);
+      } else {
+        res.status(201).json({ message: "Användare skapad!" });
+      }
+    }
+  );
+});
 
 // Hämta alla användare
 app.get("/users", auth, function(req, res) {
@@ -93,9 +106,29 @@ app.post("/login", function(req, res) {
   con.query(
     "SELECT * FROM users WHERE username = ?",
     [username],
-    async function(err, result)
+    async function(err, result) {
+      if (err) {
+        return res.status(500).json(err);
+      }
 
+      if (result.length === 0) {
+        return res.status(404).json({ message: "Användare hittades inte" });
+      }
+
+      // Kollar så lösenordet stämmer och skapar en token
+      const user = result[0];
+      const isMatch = await bcrypt.compare(password, user.password);
+
+      if (!isMatch) {
+        return res.status(401).json({ message: "Fel lösenord" });
+      }
+
+      const token = jwt.sign({ id: user.id, username: user.username }, SECRET, { expiresIn: "1h" });
+      res.json({ token });
+    }
+  );
+});
 
 http.listen(port, function() {
   console.log("Server startad" + port);
-})});
+});
