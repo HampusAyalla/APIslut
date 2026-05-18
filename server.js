@@ -13,7 +13,7 @@ app.use(express.json()); //Läsa Json request
 //Hemlig nyckel som man måste ha
 const SECRET = "supersecretkey";
 
-//Koppling till min databas (Som jag inte har än)
+//Koppling till min databas
 var con = mysql.createConnection({
   host: "localhost",
   user: "root",
@@ -45,6 +45,21 @@ function auth(req, res, next) {
   });
 }
 
+app.get("/", function(req, res) {
+  res.send(`
+    <h1>Dokumentation av det här APIet</h1>
+    <h2>Routes</h2>
+    <ul>
+      <li><strong>POST /login</strong> för inloggning. Returnerar en JWT som används som token till routes skyddade med auth. Accepterar JSON</li>
+      <li><strong>POST /users</strong> skapar en ny användare. Accepterar JSON på visst format, användarnamn är obligatoriskt måste va unikt.</li>
+      <li><strong>GET /users</strong> returnerar alla användare från databasen.</li>
+      <li><strong>GET /users/:id</strong> returnerar en användare med  id eller fel statusom användaren saknas.</li>
+      <li><strong>PUT /users/:id</strong> uppdaterar en befintlig användare i databasen med angivet id.</li>
+    </ul>
+    <p>= denna route kräver ett giltigt token i authorization header.</p>
+  `);
+});
+
 // Skapar ny användare
 app.post("/users", async function(req, res) {
   const { username, password } = req.body;
@@ -65,7 +80,11 @@ app.post("/users", async function(req, res) {
       if (err) {
         return res.status(500).json(err);
       } else {
-        res.status(201).json({ message: "Användare skapad!" });
+        res.status(201).json({ 
+          id: result.insertId, 
+          username: username,
+          message: "Användare skapad!" 
+        });
       }
     }
   );
@@ -80,6 +99,34 @@ app.get("/users", auth, function(req, res) {
 
     res.json(result);
   });
+});
+
+//put för att kunna uppdatera en användare, kollar också så att användaren finns.
+app.put("/users/:id", auth, function(req, res) {
+  const userId = req.params.id;
+  const { username } = req.body;
+
+  if (!username) {
+    return res.status(400).json({ message: "Fyll i ditt användarnamn för att kunna uppdatera" });
+  }
+
+  con.query(
+    "UPDATE users SET username = ? WHERE id = ?",
+    [username, userId],
+    function(err, result) {
+      if (err) {
+        return res.status(500).json(err);
+      }
+      
+      // Kollar så användaren finns och visar 404 samt gör inget.
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: "Användaren hittades inte" });
+      }
+
+      // returnerar objektet. 
+      res.status(200).json({ id: parseInt(userId), username: username });
+    }
+  );
 });
 
 // Hämta användare med id
